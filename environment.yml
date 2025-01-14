@@ -1,0 +1,21 @@
+name: med-mnist
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.10
+  - anaconda::ipykernel=6.29.5
+  - anaconda::pip
+  - conda-forge:numpy=2.1.2
+  - conda-forge::scipy=1.14.1
+  - conda-forge::tqdm=4.67.0
+  - matplotlib=3.9.2
+  - conda-forge::scikit-learn=1.5.2
+  - pytorch::pytorch=2.5
+  - pytorch::torchvision=0.20.0
+  - pytorch::pytorch-cuda=12.4
+  - conda-forge::tomli=2.2.1
+  - pip:
+    - medmnist==3.0.2
