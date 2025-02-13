@@ -3,18 +3,15 @@ from pprint import pprint
 import numpy as np
 from collections import defaultdict
 import json
-from typing import List
+from typing import List, Literal, Optional
 
 import torch
-from torch.utils.data import Dataset, DataLoader
-# import torchvision
+from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
 import medmnist
 from medmnist import INFO, Evaluator
 from medmnist.dataset import MedMNIST
-# from medmnist import PathMNIST, DermaMNIST, OCTMNIST, PneumoniaMNIST, BreastMNIST, \
-#     BloodMNIST, TissueMNIST, OrganAMNIST, OrganCMNIST, OrganSMNIST # RetinaMNIST, ChestMNIST
 
 
 def info(datasets_name_list):
@@ -121,6 +118,15 @@ def unify_data(dataset_names: List[str],
         dict: A dictionary of class mappings if `are_unique_classes` is True, else None.
     """
 
+    # Define unified_dataset save path and check if the file already exists
+    if save_path is not None and filename is not None:
+        unified_dataset_path = os.path.join(save_path, f"{filename}.npz")
+
+        if os.path.exists(unified_dataset_path):
+            print(f"File {unified_dataset_path} already exists.")
+            return None
+
+
     paths = make_paths_from_names(dataset_names, datasets_path, image_size)
 
     all_train_images = None
@@ -193,11 +199,10 @@ def unify_data(dataset_names: List[str],
     print(f"All val labels: {all_val_labels.shape}")
 
     # Save the unified dataset and mapping as files
-    if save_path is not None and filename is not None:
+    if unified_dataset_path:
         os.makedirs(save_path, exist_ok=True)
-        unified_data_path = os.path.join(save_path, f"{filename}.npz")
         np.savez(
-            unified_data_path,
+            unified_dataset_path,
             train_images=all_train_images,
             train_labels=all_train_labels,
             test_images=all_test_images,
@@ -205,7 +210,7 @@ def unify_data(dataset_names: List[str],
             val_images=all_val_images,
             val_labels=all_val_labels
         )
-        print(f"Unified dataset saved at {unified_data_path}")
+        print(f"Unified dataset saved at {unified_dataset_path}")
 
         if are_unique_classes:
             mapping_path = os.path.join(save_path, "class_mapping.json")
@@ -219,3 +224,37 @@ def unify_data(dataset_names: List[str],
     del npz_file
 
     return class_mapping if are_unique_classes else None
+
+
+class NPZDataset(Dataset):
+    def __init__(self, 
+                 npz_path: str,
+                 split: Literal["train", "val", "test"],
+                 transform: Optional[v2.Compose] = None
+    ):
+        """
+        Args:
+            npz_path (str): Path to the .npz file.
+            split (str): One of 'train', 'val', or 'test'. This determines which arrays to load.
+            transform (callable, optional): A function/transform to apply to the images.
+        """
+        # Load NPZ file without keeping reference in memory
+        data = np.load(npz_path, mmap_mode="r")  
+        
+        # Directly access images & labels (lazy loading using mmap)
+        self.images = data[f"{split}_images"]
+        self.labels = data[f"{split}_labels"]
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.images)
+
+    def __getitem__(self, idx: int):
+        # Load a single sample from disk (memory-efficient)
+        img = torch.from_numpy(self.images[idx]).float()  # Avoids unnecessary copying
+        label = torch.tensor(self.labels[idx], dtype=torch.long).squeeze()  # Ensure correct shape
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
