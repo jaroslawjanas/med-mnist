@@ -251,7 +251,7 @@ class NPZDataset(Dataset):
 
     def __getitem__(self, idx: int):
         # Load a single sample from disk (memory-efficient)
-        img = torch.from_numpy(self.images[idx]).float()  # Avoids unnecessary copying
+        img = torch.tensor(self.images[idx])
         label = torch.tensor(self.labels[idx], dtype=torch.long).squeeze()  # Ensure correct shape
 
         if self.transform:
