@@ -1,3 +1,6 @@
+import torch
+from tqdm import tqdm
+
 # Function to calculate accuracy and average loss
 def calculate_stats(model, dataloader, criterion, device):
     

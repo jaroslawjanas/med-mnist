@@ -164,6 +164,106 @@ class WideResNet(nn.Module):
         out = self.fc(out)
         return out
     
+###########################################
+########### Vision Transformer ############
+###########################################
+
+class Patchify(nn.Module):
+    def __init__(self, img_size, patch_size):
+        super(Patchify, self).__init__()
+        self.patch_size = patch_size
+        self.num_patches = (img_size // patch_size) ** 2
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        patch_dim = C * self.patch_size * self.patch_size
+        x = x.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
+        x = x.permute(0, 2, 3, 1, 4, 5).reshape(B, -1, patch_dim)
+        return x
+
+class PatchEmbedding(nn.Module):
+    def __init__(self, img_size, patch_size, in_channels, projection_dim):
+        super(PatchEmbedding, self).__init__()
+        self.patchify = Patchify(img_size, patch_size)
+        self.projection = nn.Linear(in_channels * patch_size * patch_size, projection_dim)
+
+    def forward(self, x):
+        x = self.patchify(x)  # (B, num_patches, patch_dim)
+        x = self.projection(x)  # (B, num_patches, projection_dim)
+        return x
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, projection_dim, num_heads):
+        super(MultiHeadSelfAttention, self).__init__()
+        self.num_heads = num_heads
+        self.head_dim = projection_dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        self.qkv = nn.Linear(projection_dim, projection_dim * 3)
+        self.fc_out = nn.Linear(projection_dim, projection_dim)
+
+    def forward(self, x):
+        B, N, D = x.shape
+        qkv = self.qkv(x).chunk(3, dim=-1)  # (B, N, projection_dim) -> 3 * (B, N, projection_dim)
+        queries, keys, values = map(
+            lambda t: t.reshape(B, N, self.num_heads, self.head_dim).transpose(1, 2),
+            qkv
+        )  # (B, num_heads, N, head_dim)
+
+        attention = (queries @ keys.transpose(-2, -1)) * self.scale  # (B, num_heads, N, N)
+        attention = attention.softmax(dim=-1)
+
+        out = (attention @ values).transpose(1, 2).reshape(B, N, D)  # (B, N, projection_dim)
+        return self.fc_out(out)
+
+class TransformerBlock(nn.Module):
+    def __init__(self, projection_dim, num_heads, mlp_ratio, dropout):
+        super(TransformerBlock, self).__init__()
+        self.attn = MultiHeadSelfAttention(projection_dim, num_heads)
+        self.mlp = nn.Sequential(
+            nn.Linear(projection_dim, int(projection_dim * mlp_ratio)),
+            nn.GELU(),
+            nn.Linear(int(projection_dim * mlp_ratio), projection_dim)
+        )
+        self.norm1 = nn.LayerNorm(projection_dim)
+        self.norm2 = nn.LayerNorm(projection_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = x + self.dropout(self.attn(self.norm1(x)))
+        x = x + self.dropout(self.mlp(self.norm2(x)))
+        return x
+
+class VisionTransformer(nn.Module):
+    def __init__(self, image_size, patch_size, in_channels, num_classes, projection_dim, depth, num_heads, mlp_ratio, dropout):
+        super(VisionTransformer, self).__init__()
+        self.patch_embed = PatchEmbedding(image_size, patch_size, in_channels, projection_dim)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, projection_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, (image_size // patch_size) ** 2 + 1, projection_dim))
+        self.dropout = nn.Dropout(dropout)
+
+        self.blocks = nn.Sequential(
+            *[TransformerBlock(projection_dim, num_heads, mlp_ratio, dropout) for _ in range(depth)]
+        )
+        self.norm = nn.LayerNorm(projection_dim)
+        self.fc = nn.Linear(projection_dim, num_classes)
+
+    def forward(self, x):
+        B = x.shape[0]
+        x = self.patch_embed(x)
+        cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, projection_dim)
+        x = torch.cat((cls_tokens, x), dim=1)  # (B, num_patches+1, projection_dim)
+        x = x + self.pos_embed
+        x = self.dropout(x)
+
+        x = self.blocks(x)
+        x = self.norm(x)
+        return self.fc(x[:, 0])  # Use the class token
+    
+###########################################
+######### ARCHITECTURE SELECTOR ###########
+###########################################
+    
 def architecture(arch: str):
     if arch == "simple-cnn":
         return partial(SimpleCNN)
@@ -185,5 +285,7 @@ def architecture(arch: str):
         return partial(WideResNet, depth=28, width=2)
     elif arch == "wrn28-10":
         return partial(WideResNet, depth=28, width=10)
+    elif arch == "vit":
+        return partial(VisionTransformer)
     else:
         raise ValueError(f"Architecture '{arch}' not recognized.")
