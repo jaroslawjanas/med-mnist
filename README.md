@@ -103,10 +103,8 @@
    ```
 
    **One-Liner Command** (avoids using a `.prf` file):
-   ```bash
-    unison "<PATH>\med-mnist" "ssh://<USER>@<IP>:<PORT>//root/med-mnist" -auto -batch -repeat 2 \
-    -ignore "Path datasets" -ignore "Path src/__pycache__" \
-    -ignore "Name README.md" -ignore "Name unison.prf" -ignore "Name .gitignore" -ignore "Name *.log"
+   ```powershell
+    unison "<PATH>\med-mnist" "ssh://<USER>@<IP>:<PORT>//root/med-mnist" -auto -batch -repeat 2 -ignore "Path datasets" -ignore "Path src/__pycache__" -ignore "Name README.md" -ignore "Name unison.prf" -ignore "Name .gitignore" -ignore "Name *.log"
 
    ```
 
