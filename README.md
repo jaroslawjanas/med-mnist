@@ -63,6 +63,11 @@
    DEBIAN_FRONTEND=noninteractive apt-get install -y unison
 
    ##
+   # Disable auto tmux
+   ##
+   touch ~/.no_auto_tmux
+
+   ##
    # Verify Installations
    ##
    echo "Miniconda Installed:"
