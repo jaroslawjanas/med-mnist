@@ -28,6 +28,7 @@ def info(datasets_name_list):
         print("Classes:")
         pprint(info['label'])
 
+
 def download(datasets_name_list, datasets_path, image_size):
     # Imagine size can be 28, 64, 128, 256
     
@@ -227,10 +228,12 @@ def unify_data(dataset_names: List[str],
 
 
 class NPZDataset(Dataset):
-    def __init__(self, 
-                 npz_path: str,
-                 split: Literal["train", "val", "test"],
-                 transform: Optional[v2.Compose] = None
+    def __init__(
+            self, 
+            npz_path: str,
+            split: Literal["train", "val", "test"],
+            transform: Optional[v2.Compose] = None,
+            mmap_mode: Optional[str] = None
     ):
         """
         Args:
@@ -238,8 +241,8 @@ class NPZDataset(Dataset):
             split (str): One of 'train', 'val', or 'test'. This determines which arrays to load.
             transform (callable, optional): A function/transform to apply to the images.
         """
-        # Load NPZ file without keeping reference in memory
-        data = np.load(npz_path, mmap_mode="r")  
+        # Load NPZ file, mmap_mode="r" for memory-mapping or None for loading into memory
+        data = np.load(npz_path, mmap_mode=mmap_mode)  
         
         # Directly access images & labels (lazy loading using mmap)
         self.images = data[f"{split}_images"]
