@@ -234,6 +234,7 @@ class TransformerBlock(nn.Module):
         x = x + self.dropout(self.mlp(self.norm2(x)))
         return x
 
+import lightning as L
 class VisionTransformer(nn.Module):
     def __init__(self, image_size, patch_size, in_channels, num_classes, projection_dim, depth, num_heads, mlp_ratio, dropout):
         super(VisionTransformer, self).__init__()

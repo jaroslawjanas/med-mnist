@@ -1,6 +1,11 @@
 import torch
 from tqdm import tqdm
 
+###
+# ALL CODE IN THIS FILE HAS BEEN DEPRECATED IN FAVOR OF THE LIGHTNING FRAMEWORK
+# https://lightning.ai/docs/pytorch/stable/
+##
+
 # Function to calculate accuracy and average loss
 def calculate_stats(model, dataloader, criterion, device):
     

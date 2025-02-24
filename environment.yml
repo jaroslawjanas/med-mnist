@@ -16,7 +16,10 @@ dependencies:
   - pytorch::pytorch=2.5
   - pytorch::torchvision=0.20.0
   - pytorch::pytorch-cuda=12.4
+  - conda-forge::lightning=2.5.0.post0
   - conda-forge::torchinfo=1.8.0
   - conda-forge::tomli=2.2.1
+  - conda-forge::rich=13.9.4
+  - conda-forge::ipywidgets=8.1.5
   - pip:
     - medmnist==3.0.2

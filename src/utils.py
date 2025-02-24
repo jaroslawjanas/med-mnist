@@ -1,11 +1,12 @@
 import torch
 from torch.utils.data import Dataset
 from torch import Tensor
+from lightning.pytorch.callbacks.progress.rich_progress import RichProgressBarTheme
 
 from collections import Counter
 import matplotlib.pyplot as plt
 
-def compute_class_weights(dataset: Dataset, device: str) -> Tensor:
+def compute_class_weights(dataset: Dataset) -> Tensor:
 
     # 1. Count how many times each class occurs
     class_counter = Counter()
@@ -48,4 +49,15 @@ def compute_class_weights(dataset: Dataset, device: str) -> Tensor:
     plt.show()
 
     # 5. Return weights as a GPU tensor
-    return torch.tensor(weights, dtype=torch.float).to(device)
+    return torch.tensor(weights, dtype=torch.float)
+
+custom_theme = RichProgressBarTheme(
+    description="green_yellow",
+    progress_bar="green1",
+    progress_bar_finished="green1",
+    progress_bar_pulse="#6206E0",
+    batch_progress="green_yellow",
+    time="grey82",
+    processing_speed="grey82",
+    metrics="grey82",
+)
