@@ -52,12 +52,12 @@ def compute_class_weights(dataset: Dataset) -> Tensor:
     return torch.tensor(weights, dtype=torch.float)
 
 custom_theme = RichProgressBarTheme(
-    description="green_yellow",
-    progress_bar="green1",
-    progress_bar_finished="green1",
-    progress_bar_pulse="#6206E0",
-    batch_progress="green_yellow",
-    time="grey82",
-    processing_speed="grey82",
-    metrics="grey82",
+    description="#a6a000",
+    progress_bar="#00ff06",
+    progress_bar_finished="#aaffba",
+    progress_bar_pulse="#39ff00",
+    batch_progress="#00b7bb",
+    time="#a6a000",
+    processing_speed="#00b7bb",
+    metrics="#025aeb",
 )
