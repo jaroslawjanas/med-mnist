@@ -66,7 +66,7 @@ custom_theme = RichProgressBarTheme(
 )
 
 
-def plot_and_save_metrics(path: str):
+def plot_and_save_metrics(path: str, smooth_window: int = 1):
     csv_path = os.path.join(path, "metrics.csv")
     save_path = os.path.join(path, "metrics_plot.png")
 
@@ -82,78 +82,64 @@ def plot_and_save_metrics(path: str):
         x_col = "step"
         x_label = "Step"
     
-    # Define the metrics to plot as (column_name, title)
-    metrics_to_plot = [
-        ("train_loss", "Train Loss"),
-        ("val_loss",   "Validation Loss"),
-        ("train_acc",  "Train Accuracy"),
-        ("val_acc",    "Validation Accuracy"),
-    ]
+    # Define metric groups
+    loss_metrics = ["train_loss", "val_loss"]
+    acc_metrics  = ["train_acc", "val_acc"]
     
-    # Pre-calculate global y-limits for losses and accuracies
-    loss_columns = [col for col, title in metrics_to_plot if "loss" in col]
-    acc_columns = [col for col, title in metrics_to_plot if "acc" in col]
-
-    loss_vals = []
-    for col in loss_columns:
-        if col in df.columns:
-            loss_vals.extend(df[col].dropna().tolist())
-    acc_vals = []
-    for col in acc_columns:
-        if col in df.columns:
-            acc_vals.extend(df[col].dropna().tolist())
+    # Create a figure with two subplots side by side
+    fig, axs = plt.subplots(1, 2, figsize=(14, 6))
     
-    # Set common limits if data is available
-    if loss_vals:
-        global_loss_max = max(loss_vals)
-    else:
-        global_loss_max = None
-        
-    if acc_vals:
-        global_acc_max = max(acc_vals)
-    else:
-        global_acc_max = None
-
-    # Create a 2x2 grid of subplots
-    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
-    axs = axs.flatten()
-
-    for ax, (col, title) in zip(axs, metrics_to_plot):
-        if col not in df.columns:
-            ax.text(0.5, 0.5, f"'{col}' not found", ha="center", va="center")
-            ax.set_title(title)
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(title)
-            continue
-        
-        # Filter out rows where this metric is NaN and sort by x_col
-        df_metric = df.dropna(subset=[col]).copy()
-        df_metric.sort_values(x_col, inplace=True)
-
-        if df_metric.empty:
-            ax.text(0.5, 0.5, f"No data for '{col}'", ha="center", va="center")
-            ax.set_title(title)
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(title)
-        else:
+    # --- Plot Losses ---
+    ax = axs[0]
+    loss_data = {}  # to collect all loss values for common y-axis limits
+    for metric in loss_metrics:
+        if metric in df.columns:
+            df_metric = df.dropna(subset=[metric]).copy()
+            df_metric.sort_values(x_col, inplace=True)
+            if smooth_window > 1:
+                df_metric[metric] = df_metric[metric].rolling(window=smooth_window, min_periods=1).mean()
             x_vals = df_metric[x_col].values
-            y_vals = df_metric[col].values
-            ax.plot(x_vals, y_vals, marker='o', linestyle='-')
-            ax.set_title(title)
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(title)
-            
-            # Set integer ticks if x is epoch
-            if x_label == "Epoch":
-                unique_epochs = sorted(df_metric[x_col].unique())
-                ax.set_xticks(unique_epochs)
-            
-            # Set common y-limits for losses and accuracies
-            if "loss" in col and global_loss_max is not None:
-                ax.set_ylim(0, global_loss_max*1.1)
-            elif "acc" in col and global_acc_max is not None:
-                ax.set_ylim(0, global_acc_max*1.1)
-
+            y_vals = df_metric[metric].values
+            loss_data[metric] = y_vals
+            ax.plot(x_vals, y_vals, marker='o', linestyle='-', label=metric)
+    ax.set_title("Loss")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Loss")
+    # Set common y-limits if any loss data exists
+    if loss_data:
+        combined_losses = [val for arr in loss_data.values() for val in arr]
+        y_max = max(combined_losses) * 1.1
+        ax.set_ylim(0, y_max)
+    if x_label == "Epoch":
+        unique_epochs = sorted(df[x_col].dropna().unique())
+        ax.set_xticks(unique_epochs)
+    ax.legend(loc='upper left')
+    
+    # --- Plot Accuracies ---
+    ax = axs[1]
+    acc_data = {}  # to collect all accuracy values for common y-axis limits
+    for metric in acc_metrics:
+        if metric in df.columns:
+            df_metric = df.dropna(subset=[metric]).copy()
+            df_metric.sort_values(x_col, inplace=True)
+            if smooth_window > 1:
+                df_metric[metric] = df_metric[metric].rolling(window=smooth_window, min_periods=1).mean()
+            x_vals = df_metric[x_col].values
+            y_vals = df_metric[metric].values
+            acc_data[metric] = y_vals
+            ax.plot(x_vals, y_vals, marker='o', linestyle='-', label=metric)
+    ax.set_title("Accuracy")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Accuracy")
+    if acc_data:
+        combined_accs = [val for arr in acc_data.values() for val in arr]
+        y_max = max(combined_accs) * 1.1
+        ax.set_ylim(0, y_max)
+    if x_label == "Epoch":
+        unique_epochs = sorted(df[x_col].dropna().unique())
+        ax.set_xticks(unique_epochs)
+    ax.legend(loc='upper left')
+    
     plt.tight_layout()
     plt.show()
     
