@@ -234,9 +234,20 @@ class TransformerBlock(nn.Module):
         x = x + self.dropout(self.mlp(self.norm2(x)))
         return x
 
-import lightning as L
 class VisionTransformer(nn.Module):
-    def __init__(self, image_size, patch_size, in_channels, num_classes, projection_dim, depth, num_heads, mlp_ratio, dropout):
+    def __init__(
+            self, 
+            image_size: int,
+            patch_size: int,
+            in_channels: int,
+            num_classes: int,
+            num_datasets:  int,
+            projection_dim: int,
+            depth: int,
+            num_heads: int,
+            mlp_ratio: int,
+            dropout: float
+    ):
         super(VisionTransformer, self).__init__()
         self.patch_embed = PatchEmbedding(image_size, patch_size, in_channels, projection_dim)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, projection_dim))
@@ -249,9 +260,16 @@ class VisionTransformer(nn.Module):
         self.norm = nn.LayerNorm(projection_dim)
         self.fc = nn.Linear(projection_dim, num_classes)
 
+        # Two separate heads:
+        # 1. Head for predicting the global class (multi-class classification)
+        self.fc_class = nn.Linear(projection_dim, num_classes)
+        # 2. Head for predicting the dataset ID (for multi-task learning)
+        self.fc_dataset = nn.Linear(projection_dim, num_datasets)
+
     def forward(self, x):
         B = x.shape[0]
         x = self.patch_embed(x)
+        # Expand the class token to batch size and concatenate with patch embeddings
         cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, projection_dim)
         x = torch.cat((cls_tokens, x), dim=1)  # (B, num_patches+1, projection_dim)
         x = x + self.pos_embed
@@ -259,7 +277,12 @@ class VisionTransformer(nn.Module):
 
         x = self.blocks(x)
         x = self.norm(x)
-        return self.fc(x[:, 0])  # Use the class token
+        # Use the class token representation for prediction (first token)
+        rep = x[:, 0]  # shape: (B, projection_dim)
+        out_class = self.fc_class(rep)      #  Class prediction
+        out_dataset = self.fc_dataset(rep)    # Dataset prediction
+        
+        return out_class, out_dataset
     
 ###########################################
 ######### ARCHITECTURE SELECTOR ###########

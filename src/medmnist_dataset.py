@@ -3,7 +3,7 @@ from pprint import pprint
 import numpy as np
 from collections import defaultdict
 import json
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict
 
 import torch
 from torch.utils.data import Dataset
@@ -125,8 +125,12 @@ def unify_data(dataset_names: List[str],
 
         if os.path.exists(unified_dataset_path):
             print(f"File {unified_dataset_path} already exists.")
-            return None
 
+            if os.path.exists(os.path.join(save_path, "class_mapping.json")):
+                with open(os.path.join(save_path, "class_mapping.json"), "r") as f:
+                    class_mapping = json.load(f)
+                return class_mapping
+            return None
 
     paths = make_paths_from_names(dataset_names, datasets_path, image_size)
 
@@ -231,16 +235,12 @@ class NPZDataset(Dataset):
     def __init__(
             self, 
             npz_path: str,
+            class_mapping: Dict,
+            dataset_mapping: Dict,
             split: Literal["train", "val", "test"],
             transform: Optional[v2.Compose] = None,
             mmap_mode: Optional[str] = None
     ):
-        """
-        Args:
-            npz_path (str): Path to the .npz file.
-            split (str): One of 'train', 'val', or 'test'. This determines which arrays to load.
-            transform (callable, optional): A function/transform to apply to the images.
-        """
         # Load NPZ file, mmap_mode="r" for memory-mapping or None for loading into memory
         data = np.load(npz_path, mmap_mode=mmap_mode)  
         
@@ -249,15 +249,71 @@ class NPZDataset(Dataset):
         self.labels = data[f"{split}_labels"]
         self.transform = transform
 
+        self.reverse_class_mapping = self._reverse_class_mapping(class_mapping)
+        self.dataset_mapping = dataset_mapping
+
     def __len__(self) -> int:
         return len(self.images)
 
     def __getitem__(self, idx: int):
-        # Load a single sample from disk (memory-efficient)
         img = torch.tensor(self.images[idx])
-        label = torch.tensor(self.labels[idx], dtype=torch.long).squeeze()  # Ensure correct shape
+        class_label = int(self.labels[idx]) # int([0])
+
+        dataset_name = self.reverse_class_mapping[class_label]
+        dataset_label = self.dataset_mapping[dataset_name]
+        
+        class_label_tensor = torch.tensor(class_label, dtype=torch.long)
+        dataset_label_tensor = torch.tensor(dataset_label, dtype=torch.long)
 
         if self.transform:
             img = self.transform(img)
 
-        return img, label
+        return img, (class_label_tensor, dataset_label_tensor)
+    
+    def _reverse_class_mapping(self, mapping: Dict) -> Dict:
+        """
+        Given a mapping like:
+        { "organs": {"0": 0, "1": 1, ...}, "pathmnist": {"0": 11, "1": 12, ...}, ... }
+        returns a dictionary mapping each global label (int) to its dataset string.
+        """
+        reversed_map = {}
+        for ds, local_map in mapping.items():
+            for local_label, global_label in local_map.items():
+                reversed_map[int(global_label)] = ds
+        return reversed_map
+    
+
+def create_dataset_mapping(
+        class_mapping: Dict[str, Dict[str, int]],
+        save_path: str
+    ) -> Dict:
+    """
+    Given a dict like:
+        {
+          "organs": { "0": 0, "1": 1, ... },
+          "pathmnist": { "0": 11, "1": 12, ... },
+          "dermamnist": { "0": 20, "1": 21, ... },
+          ...
+        }
+    This function builds a new dict mapping dataset names to integer IDs:
+        {
+          "organs": 0,
+          "pathmnist": 1,
+          "dermamnist": 2,
+          ...
+        }
+    and then saves it to 'save_path' in JSON format.
+    """
+    # Get dataset names from the top-level keys of 'class_mapping_dict'
+    dataset_names = list(class_mapping.keys())
+
+    # Build a dataset-to-ID mapping
+    dataset_label_mapping = {ds_name: idx for idx, ds_name in enumerate(dataset_names)}
+
+    # Save to JSON
+    file_save_path = os.path.join(save_path, "dataset_mapping.json")
+    with open(file_save_path, "w") as f:
+        json.dump(dataset_label_mapping, f, indent=4)
+
+    print(f"Dataset mapping saved to {file_save_path}")
+    return dataset_label_mapping
