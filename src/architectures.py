@@ -197,6 +197,7 @@ class PatchEmbedding(nn.Module):
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, projection_dim, num_heads):
         super(MultiHeadSelfAttention, self).__init__()
+        assert projection_dim % num_heads == 0, "Projection_dim not divisible by num_heads"
         self.num_heads = num_heads
         self.head_dim = projection_dim // num_heads
         self.scale = self.head_dim ** -0.5
@@ -260,7 +261,6 @@ class VisionTransformer(nn.Module):
             *[TransformerBlock(projection_dim, num_heads, mlp_ratio, dropout) for _ in range(depth)]
         )
         self.norm = nn.LayerNorm(projection_dim)
-        self.fc = nn.Linear(projection_dim, num_classes)
 
         # Two separate heads:
         # 1. Head for predicting the global class (multi-class classification)
