@@ -54,9 +54,6 @@ def download(datasets_name_list, datasets_path, image_size):
 
 
 def make_paths_from_names(datasets_name_list, datasets_path, image_size=64):
-    """
-    Make paths from names
-    """
     paths = []
 
     for dataset_name in datasets_name_list:
@@ -107,17 +104,7 @@ def unify_data(dataset_names: List[str],
                filename: str,
                are_unique_classes: bool=True
     ):
-    """
-    Unify data from multiple datasets and optionally save the unified dataset and class mapping.
-
-    Args:
-        names (list of str): List of dataset names.
-        are_unique_classes (bool): Whether to ensure unique class labels for each dataset.
-        save_path (str): Path to save the unified dataset and class mapping.
-
-    Returns:
-        dict: A dictionary of class mappings if `are_unique_classes` is True, else None.
-    """
+    # Unify data from multiple datasets and optionally save the unified dataset and class mapping.
 
     # Define unified_dataset save path and check if the file already exists
     if save_path is not None and filename is not None:

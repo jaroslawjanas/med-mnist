@@ -106,6 +106,8 @@ class MeanReduceLayer(nn.Module):
 ########## Wide Residual Network ##########
 ###########################################
 
+# This implementation is AI conversion of what JAX's default WRN is
+
 class WRNBlock(nn.Module):
     """WideResNet Block"""
     def __init__(self, in_channels, out_channels, stride=1, bn_momentum=0.9, bn_eps=1e-5):
