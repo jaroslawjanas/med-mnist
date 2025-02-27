@@ -281,6 +281,7 @@ class VisionTransformer(nn.Module):
         x = self.norm(x)
         # Use the class token representation for prediction (first token)
         rep = x[:, 0]  # shape: (B, projection_dim)
+        
         out_class = self.fc_class(rep)      #  Class prediction
         out_dataset = self.fc_dataset(rep)    # Dataset prediction
         
